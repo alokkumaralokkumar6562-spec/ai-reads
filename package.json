@@ -1,0 +1,24 @@
+{
+  "name": "ai-reads-platform",
+  "version": "1.0.0",
+  "description": "AI Reads – Smart Notes & Books Learning Platform",
+  "scripts": {
+    "setup": "npm install --prefix server && npm install --prefix client",
+    "build": "npm run build --prefix client",
+    "start": "node server/server.js",
+    "server": "node server/server.js",
+    "client": "npm run dev --prefix client"
+  },
+  "keywords": [
+    "education",
+    "ai",
+    "notes",
+    "books",
+    "pdf",
+    "learning-platform",
+    "razorpay",
+    "supabase"
+  ],
+  "author": "AI Reads Team",
+  "license": "ISC"
+}
