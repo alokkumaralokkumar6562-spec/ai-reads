@@ -85,15 +85,13 @@ export default function ContactPage() {
               </div>
             </div>
 
-            {/* Direct Bank & UPI Support details */}
+            {/* Direct UPI Support details */}
             <div className="pt-4 border-t border-white/15 space-y-2 text-xs">
               <p className="text-[11px] font-bold uppercase tracking-wider text-purple-200 flex items-center gap-1.5">
-                <Building className="w-3.5 h-3.5" /> Official Bank / UPI for Direct Transfers:
+                <CreditCard className="w-3.5 h-3.5 text-purple-300" /> Official PhonePe / UPI for Payments:
               </p>
               <div className="p-3 rounded-xl bg-white/10 space-y-1 font-mono text-[11px]">
-                <p><strong>A/C Name:</strong> {siteConfig.banking.accountHolderName}</p>
-                <p><strong>A/C No:</strong> {siteConfig.banking.accountNumber}</p>
-                <p><strong>IFSC:</strong> {siteConfig.banking.ifscCode} ({siteConfig.banking.bankName})</p>
+                <p><strong>Payee:</strong> {siteConfig.banking.accountHolderName}</p>
                 <p><strong>UPI ID:</strong> <span className="text-emerald-300 font-bold">{siteConfig.banking.upiId}</span></p>
               </div>
             </div>

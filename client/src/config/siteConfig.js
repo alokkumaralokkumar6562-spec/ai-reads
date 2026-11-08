@@ -1,5 +1,5 @@
 // =========================================================================
-// AI Reads - Aapka Official Contact, WhatsApp aur Bank Account Configuration
+// AI Reads - Aapka Official Contact, WhatsApp aur UPI Configuration
 // =========================================================================
 
 export const siteConfig = {
@@ -11,14 +11,10 @@ export const siteConfig = {
     address: 'AI Reads EdTech Hub, India'
   },
 
-  // 2. Bank Account & UPI Details (Direct Payment & Invoices ke liye)
+  // 2. UPI Payment Details (Bank Account details removed - Only UPI active)
   banking: {
     accountHolderName: 'ALOK KUMAR',
-    bankName: 'Punjab National Bank (PNB)',
-    accountNumber: '2298001700400951',
-    ifscCode: 'PUNB0229800',
-    branch: 'PNB Branch',
-    upiId: '7209092757-2@ybl' // PhonePe UPI ID
+    upiId: '7209092757-2@ybl' // PhonePe / GPay / Paytm UPI ID
   },
 
   // 3. Social & Community Links

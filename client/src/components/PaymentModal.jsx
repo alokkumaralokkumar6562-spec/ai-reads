@@ -14,7 +14,6 @@ export default function PaymentModal({ book, isOpen, onClose, onSuccess }) {
   const [step, setStep] = useState('review'); // 'review' | 'success'
   const [activeGateway, setActiveGateway] = useState('razorpay'); // 'razorpay' | 'direct_upi'
   const [copiedUpi, setCopiedUpi] = useState(false);
-  const [copiedAcc, setCopiedAcc] = useState(false);
 
   if (!isOpen || !book) return null;
 
@@ -26,16 +25,11 @@ export default function PaymentModal({ book, isOpen, onClose, onSuccess }) {
     });
   };
 
-  const copyText = (text, type) => {
+  const copyText = (text) => {
     if (navigator.clipboard) {
       navigator.clipboard.writeText(text);
-      if (type === 'upi') {
-        setCopiedUpi(true);
-        setTimeout(() => setCopiedUpi(false), 2000);
-      } else {
-        setCopiedAcc(true);
-        setTimeout(() => setCopiedAcc(false), 2000);
-      }
+      setCopiedUpi(true);
+      setTimeout(() => setCopiedUpi(false), 2000);
     }
   };
 
@@ -204,7 +198,7 @@ export default function PaymentModal({ book, isOpen, onClose, onSuccess }) {
               </div>
             </div>
 
-            {/* Payment Gateway Toggle: Razorpay vs Direct Bank/UPI */}
+            {/* Payment Gateway Toggle: Razorpay vs Direct UPI */}
             <div className="space-y-2">
               <p className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
                 Payment Channel
@@ -219,7 +213,7 @@ export default function PaymentModal({ book, isOpen, onClose, onSuccess }) {
                       : 'border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300'
                   }`}
                 >
-                  Razorpay Gateway (Automated)
+                  Razorpay Gateway
                 </button>
                 <button
                   type="button"
@@ -230,43 +224,37 @@ export default function PaymentModal({ book, isOpen, onClose, onSuccess }) {
                       : 'border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300'
                   }`}
                 >
-                  Direct UPI / Bank Transfer
+                  Direct UPI Payment
                 </button>
               </div>
             </div>
 
-            {/* Direct Bank Account / UPI Details View */}
+            {/* Direct UPI Payment Details View (Bank details removed) */}
             {activeGateway === 'direct_upi' ? (
-              <div className="p-4 rounded-2xl bg-indigo-50/60 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-900 text-xs space-y-2.5">
-                <p className="font-bold text-indigo-900 dark:text-indigo-200 flex items-center justify-between">
-                  <span>Pay directly to Creator's Account:</span>
+              <div className="p-4 rounded-2xl bg-indigo-50/60 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-900 text-xs space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-indigo-900 dark:text-indigo-200">Pay via PhonePe / GPay / Paytm:</span>
                   <span className="text-indigo-600 dark:text-indigo-400 font-black text-sm">₹{book.price}</span>
-                </p>
+                </div>
 
-                <div className="p-2.5 rounded-xl bg-white dark:bg-slate-900 border border-indigo-100 dark:border-indigo-950 flex items-center justify-between">
+                <div className="p-3 rounded-xl bg-white dark:bg-slate-900 border border-indigo-100 dark:border-indigo-950 flex items-center justify-between">
                   <div>
-                    <span className="text-[10px] text-slate-400 uppercase font-semibold">UPI ID:</span>
-                    <p className="font-mono font-bold text-slate-800 dark:text-slate-200">{siteConfig.banking.upiId}</p>
+                    <span className="text-[10px] text-slate-400 uppercase font-semibold">Official UPI ID:</span>
+                    <p className="font-mono font-bold text-sm text-indigo-600 dark:text-indigo-400">{siteConfig.banking.upiId}</p>
+                    <p className="text-[10px] text-slate-400">Payee Name: {siteConfig.banking.accountHolderName}</p>
                   </div>
                   <button
                     type="button"
-                    onClick={() => copyText(siteConfig.banking.upiId, 'upi')}
-                    className="p-1.5 rounded-lg text-indigo-600 hover:bg-indigo-50 text-[11px] font-semibold flex items-center gap-1"
+                    onClick={() => copyText(siteConfig.banking.upiId)}
+                    className="px-3 py-1.5 rounded-lg bg-indigo-50 dark:bg-indigo-950 hover:bg-indigo-100 text-indigo-600 dark:text-indigo-300 text-xs font-semibold flex items-center gap-1.5 transition-colors"
                   >
                     {copiedUpi ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
-                    {copiedUpi ? 'Copied' : 'Copy'}
+                    {copiedUpi ? 'Copied!' : 'Copy UPI'}
                   </button>
                 </div>
 
-                <div className="p-2.5 rounded-xl bg-white dark:bg-slate-900 border border-indigo-100 dark:border-indigo-950 space-y-1 font-mono text-[11px]">
-                  <p><strong>Bank:</strong> {siteConfig.banking.bankName}</p>
-                  <p><strong>A/C No:</strong> {siteConfig.banking.accountNumber}</p>
-                  <p><strong>IFSC:</strong> {siteConfig.banking.ifscCode}</p>
-                  <p><strong>Name:</strong> {siteConfig.banking.accountHolderName}</p>
-                </div>
-
-                <p className="text-[10px] text-slate-500">
-                  PhonePe, Google Pay ya Paytm se scan karke pay karein aur neeche diye gaye button par click karein.
+                <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
+                  Apne <strong>PhonePe, Google Pay ya Paytm</strong> me upar diya gaya UPI ID paste karke ₹{book.price} pay karein aur neeche <strong>"I have paid via UPI"</strong> button dabayein.
                 </p>
               </div>
             ) : (
@@ -307,7 +295,7 @@ export default function PaymentModal({ book, isOpen, onClose, onSuccess }) {
                 </>
               ) : activeGateway === 'direct_upi' ? (
                 <>
-                  <span>I have paid ₹{book.price} via UPI / Bank</span>
+                  <span>I have paid ₹{book.price} via PhonePe / UPI</span>
                   <ArrowRight className="w-4 h-4" />
                 </>
               ) : (

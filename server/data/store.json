@@ -952,6 +952,16 @@
       "passwordHash": "$2a$10$tZ387mD8z4qW0pA8jK9g4.uH2/yG3yA6bV1yL5n7t8r6w9q4e2r1y",
       "role": "admin",
       "joinedAt": "2026-08-01T00:00:00.000Z"
+    },
+    {
+      "id": "user-google-1793560214133",
+      "name": "Google Student",
+      "email": "alokkumaralokkumar6562@gmail.com",
+      "passwordHash": "",
+      "role": "student",
+      "college": "Global University",
+      "semester": "Semester 1",
+      "joinedAt": "2026-11-01T19:10:14.133Z"
     }
   ]
 }
