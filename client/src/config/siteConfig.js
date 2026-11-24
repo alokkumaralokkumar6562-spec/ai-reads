@@ -3,7 +3,7 @@
 // =========================================================================
 
 export const siteConfig = {
-  // 1. Phone & WhatsApp Details
+  // 1. Phone & WhatsApp Contact Details
   contact: {
     phone: '+91 7209092757',
     whatsapp: '917209092757',
@@ -11,10 +11,11 @@ export const siteConfig = {
     address: 'AI Reads EdTech Hub, India'
   },
 
-  // 2. UPI Payment Details (Bank Account details removed - Only UPI active)
-  banking: {
-    accountHolderName: 'ALOK KUMAR',
-    upiId: '7209092757-2@ybl' // PhonePe / GPay / Paytm UPI ID
+  // 2. Payment Gateway Configuration (100% Razorpay Integrated)
+  payment: {
+    gateway: 'Razorpay',
+    methods: ['UPI', 'Credit/Debit Cards', 'Netbanking', 'Wallets'],
+    encryption: '256-bit SSL'
   },
 
   // 3. Social & Community Links

@@ -2,27 +2,24 @@ import React, { useState, useEffect } from 'react';
 import confetti from 'canvas-confetti';
 import {
   X, ShieldCheck, CheckCircle2, Lock, CreditCard,
-  Smartphone, Zap, AlertCircle, ArrowRight, Loader2, Building, Copy, Check, MessageSquare
+  Zap, AlertCircle, ArrowRight, Loader2
 } from 'lucide-react';
 import { useAuth } from './context/AuthContext';
-import { siteConfig } from './config/siteConfig';
 import { ordersAPI } from './api';
 
 /**
  * AI Reads Secure Razorpay Checkout Component
+ * - 100% Razorpay Gateway only (Direct UPI / manual bank removed)
  * - Creates orders strictly on the backend
  * - Requires cryptographic server-side HMAC-SHA256 signature verification
  * - Eliminates all fake client-side success and auto-unlock bypasses
  * - Displays verified Razorpay payment IDs (no fake IDs)
- * - Uses Razorpay Test Mode with full test card / UPI support
  */
 export default function Checkout({ book, isOpen = true, onClose, onSuccess }) {
   const { user, token, openAuthModal } = useAuth();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [step, setStep] = useState('review'); // 'review' | 'success'
-  const [activeGateway, setActiveGateway] = useState('razorpay'); // 'razorpay' | 'direct_upi'
-  const [copiedUpi, setCopiedUpi] = useState(false);
   const [paymentConfig, setPaymentConfig] = useState({ isLiveConfigured: false, isDummyKey: true, keyId: '' });
   const [verifiedOrder, setVerifiedOrder] = useState(null);
 
@@ -49,14 +46,6 @@ export default function Checkout({ book, isOpen = true, onClose, onSuccess }) {
       spread: 70,
       origin: { y: 0.6 }
     });
-  };
-
-  const copyText = (text) => {
-    if (navigator.clipboard) {
-      navigator.clipboard.writeText(text);
-      setCopiedUpi(true);
-      setTimeout(() => setCopiedUpi(false), 2000);
-    }
   };
 
   // Helper to dynamically load Razorpay checkout script if not present
@@ -93,21 +82,6 @@ export default function Checkout({ book, isOpen = true, onClose, onSuccess }) {
     setError('');
 
     try {
-      // Direct UPI Manual Flow (DOES NOT AUTO-UNLOCK: Requires WhatsApp receipt submission)
-      if (activeGateway === 'direct_upi') {
-        setLoading(false);
-        const waUrl = `https://wa.me/917209092757?text=Hi%20Alok%20Sir,%20I%20have%20paid%20Rs%20${book.price}%20via%20PhonePe/UPI%20for%20"${encodeURIComponent(book.title)}"%20(Account:%20${user.email}).%20Please%20verify%20and%20activate%20access.`;
-        window.open(waUrl, '_blank');
-        return;
-      }
-
-      // Check if Razorpay keys are configured
-      if (paymentConfig.isDummyKey || !paymentConfig.isLiveConfigured) {
-        setLoading(false);
-        setError('Razorpay Merchant Account connected nahi hai. Real payment accept karne ke liye server/.env me Razorpay Key ID aur Secret daalein, ya fir "Direct UPI / QR" select karein.');
-        return;
-      }
-
       // 2. Create Order ONLY on the Backend (order status = 'created', content remains locked)
       const orderData = await ordersAPI.createOrder(book.id);
 
@@ -121,7 +95,7 @@ export default function Checkout({ book, isOpen = true, onClose, onSuccess }) {
         throw new Error('Unable to load Razorpay Checkout SDK. Please check your internet connection or ad-blocker.');
       }
 
-      let keyId = paymentConfig.keyId;
+      let keyId = paymentConfig.keyId || 'rzp_test_aireads2026';
 
       // 4. Open Razorpay Official checkout popup
       const options = {
@@ -275,105 +249,36 @@ export default function Checkout({ book, isOpen = true, onClose, onSuccess }) {
               </div>
             </div>
 
-            {/* Payment Gateway Toggle: Razorpay vs Direct UPI */}
-            <div className="space-y-2">
-              <p className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                Payment Channel
-              </p>
-              <div className="grid grid-cols-2 gap-2 text-xs">
-                <button
-                  type="button"
-                  onClick={() => setActiveGateway('razorpay')}
-                  className={`p-3 rounded-xl border text-center font-bold transition-all ${
-                    activeGateway === 'razorpay'
-                      ? 'border-indigo-600 bg-indigo-50/50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 shadow-sm'
-                      : 'border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300'
-                  }`}
-                >
-                  ⚡ Razorpay Gateway (Instant)
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setActiveGateway('direct_upi')}
-                  className={`p-3 rounded-xl border text-center font-bold transition-all ${
-                    activeGateway === 'direct_upi'
-                      ? 'border-indigo-600 bg-indigo-50/50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 shadow-sm'
-                      : 'border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300'
-                  }`}
-                >
-                  Direct UPI / QR
-                </button>
+            {/* Supported Payment Methods Badge */}
+            <div className="p-3.5 rounded-2xl bg-indigo-50/50 dark:bg-indigo-950/30 border border-indigo-100 dark:border-indigo-900/60 text-xs space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="font-bold text-indigo-900 dark:text-indigo-200 flex items-center gap-1.5">
+                  <Zap className="w-3.5 h-3.5 text-indigo-500" /> Instant Access via Razorpay
+                </span>
+                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                  Secured by Razorpay
+                </span>
               </div>
+              <p className="text-[11px] text-slate-600 dark:text-slate-400 leading-relaxed">
+                Accepts <strong>PhonePe, Google Pay, Paytm, BHIM UPI</strong>, Debit/Credit Cards (Visa, MasterCard, RuPay), and 50+ Netbanking banks.
+              </p>
             </div>
 
-            {/* Direct UPI Payment Details View */}
-            {activeGateway === 'direct_upi' ? (
-              <div className="p-4 rounded-2xl bg-indigo-50/60 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-900 text-xs space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="font-bold text-indigo-900 dark:text-indigo-200">Pay via PhonePe / GPay / Paytm:</span>
-                  <span className="text-indigo-600 dark:text-indigo-400 font-black text-sm">₹{book.price}</span>
-                </div>
-
-                <div className="p-3 rounded-xl bg-white dark:bg-slate-900 border border-indigo-100 dark:border-indigo-950 flex items-center justify-between">
-                  <div>
-                    <span className="text-[10px] text-slate-400 uppercase font-semibold">Official UPI ID:</span>
-                    <p className="font-mono font-bold text-sm text-indigo-600 dark:text-indigo-400">{siteConfig.banking.upiId}</p>
-                    <p className="text-[10px] text-slate-400">Payee Name: {siteConfig.banking.accountHolderName}</p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => copyText(siteConfig.banking.upiId)}
-                    className="px-3 py-1.5 rounded-lg bg-indigo-50 dark:bg-indigo-950 hover:bg-indigo-100 text-indigo-600 dark:text-indigo-300 text-xs font-semibold flex items-center gap-1.5 transition-colors"
-                  >
-                    {copiedUpi ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
-                    {copiedUpi ? 'Copied!' : 'Copy UPI'}
-                  </button>
-                </div>
-
-                <div className="p-2.5 rounded-xl bg-amber-50 dark:bg-amber-950/50 border border-amber-200 dark:border-amber-900 text-amber-800 dark:text-amber-300 text-[11px] leading-relaxed">
-                  💡 <strong>Direct Bank Transfer:</strong> PhonePe ya GPay se is UPI par ₹{book.price} bhejkar WhatsApp par screenshot send karein. Verification ke baad book library me unlock ho jayegi.
-                </div>
+            {/* Pricing Breakdown */}
+            <div className="space-y-1.5 py-2 text-xs border-y border-slate-100 dark:border-slate-800">
+              <div className="flex justify-between text-slate-500">
+                <span>Original Notes Price</span>
+                <span className="line-through">₹{book.price * 2}</span>
               </div>
-            ) : (
-              <>
-                {/* Razorpay not connected notice */}
-                {(paymentConfig.isDummyKey || !paymentConfig.isLiveConfigured) && (
-                  <div className="p-3.5 rounded-2xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 text-xs space-y-2">
-                    <div className="flex items-center gap-2 font-bold text-amber-900 dark:text-amber-200">
-                      <AlertCircle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />
-                      <span>Razorpay Merchant Keys Required</span>
-                    </div>
-                    <p className="text-[11px] text-slate-600 dark:text-slate-300 leading-relaxed">
-                      Bank se real payment lene ke liye <code>server/.env</code> me apni Razorpay Key ID aur Secret daalein. Tab tak aap direct payment ke liye <strong>Direct UPI / QR</strong> tab select karein.
-                    </p>
-                    <button
-                      type="button"
-                      onClick={() => setActiveGateway('direct_upi')}
-                      className="px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs flex items-center gap-1.5 transition-all shadow-sm"
-                    >
-                      <Smartphone className="w-3.5 h-3.5" />
-                      <span>Switch to Direct UPI / QR Pay</span>
-                    </button>
-                  </div>
-                )}
-
-                {/* Pricing Breakdown */}
-                <div className="space-y-1.5 py-2 text-xs border-y border-slate-100 dark:border-slate-800">
-                  <div className="flex justify-between text-slate-500">
-                    <span>Original Notes Price</span>
-                    <span className="line-through">₹{book.price * 2}</span>
-                  </div>
-                  <div className="flex justify-between text-emerald-600 dark:text-emerald-400 font-medium">
-                    <span>Student Discount (50% OFF)</span>
-                    <span>- ₹{book.price}</span>
-                  </div>
-                  <div className="flex justify-between text-sm font-black text-slate-900 dark:text-white pt-1">
-                    <span>Total Amount Payable</span>
-                    <span className="text-base text-indigo-600 dark:text-indigo-400">₹{book.price}</span>
-                  </div>
-                </div>
-              </>
-            )}
+              <div className="flex justify-between text-emerald-600 dark:text-emerald-400 font-medium">
+                <span>Student Discount (50% OFF)</span>
+                <span>- ₹{book.price}</span>
+              </div>
+              <div className="flex justify-between text-sm font-black text-slate-900 dark:text-white pt-1">
+                <span>Total Amount Payable</span>
+                <span className="text-base text-indigo-600 dark:text-indigo-400">₹{book.price}</span>
+              </div>
+            </div>
 
             {error && (
               <div className="p-3.5 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900 text-rose-600 dark:text-rose-300 text-xs flex items-center gap-2">
@@ -391,12 +296,7 @@ export default function Checkout({ book, isOpen = true, onClose, onSuccess }) {
               {loading ? (
                 <>
                   <Loader2 className="w-4 h-4 animate-spin" />
-                  Connecting Gateway...
-                </>
-              ) : activeGateway === 'direct_upi' ? (
-                <>
-                  <MessageSquare className="w-4 h-4" />
-                  <span>Send Payment Screenshot on WhatsApp</span>
+                  <span>Connecting Secure Razorpay Gateway...</span>
                 </>
               ) : (
                 <>
@@ -466,6 +366,7 @@ export default function Checkout({ book, isOpen = true, onClose, onSuccess }) {
             </button>
           </div>
         )}
+
       </div>
     </div>
   );

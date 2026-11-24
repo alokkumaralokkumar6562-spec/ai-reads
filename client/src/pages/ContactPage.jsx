@@ -85,14 +85,13 @@ export default function ContactPage() {
               </div>
             </div>
 
-            {/* Direct UPI Support details */}
+            {/* Payment Security details */}
             <div className="pt-4 border-t border-white/15 space-y-2 text-xs">
               <p className="text-[11px] font-bold uppercase tracking-wider text-purple-200 flex items-center gap-1.5">
-                <CreditCard className="w-3.5 h-3.5 text-purple-300" /> Official PhonePe / UPI for Payments:
+                <CreditCard className="w-3.5 h-3.5 text-purple-300" /> 100% Secure Payments via Razorpay:
               </p>
-              <div className="p-3 rounded-xl bg-white/10 space-y-1 font-mono text-[11px]">
-                <p><strong>Payee:</strong> {siteConfig.banking.accountHolderName}</p>
-                <p><strong>UPI ID:</strong> <span className="text-emerald-300 font-bold">{siteConfig.banking.upiId}</span></p>
+              <div className="p-3 rounded-xl bg-white/10 space-y-1 text-[11px] text-slate-200 leading-relaxed">
+                <p>All transactions are processed securely through <strong>Razorpay Payment Gateway</strong> with 256-bit SSL encryption. We accept UPI (PhonePe, GPay, Paytm), Cards & Netbanking.</p>
               </div>
             </div>
 
