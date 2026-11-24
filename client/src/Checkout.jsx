@@ -95,7 +95,10 @@ export default function Checkout({ book, isOpen = true, onClose, onSuccess }) {
         throw new Error('Unable to load Razorpay Checkout SDK. Please check your internet connection or ad-blocker.');
       }
 
-      let keyId = paymentConfig.keyId || 'rzp_test_aireads2026';
+      const keyId = orderData.keyId || paymentConfig.keyId;
+      if (!keyId || keyId.includes('aireads') || keyId === 'rzp_test_aireads2026') {
+        throw new Error('Razorpay Gateway setup incomplete: Render dashboard me RAZORPAY_KEY_ID aur RAZORPAY_KEY_SECRET add karein.');
+      }
 
       // 4. Open Razorpay Official checkout popup
       const options = {
@@ -279,6 +282,18 @@ export default function Checkout({ book, isOpen = true, onClose, onSuccess }) {
                 <span className="text-base text-indigo-600 dark:text-indigo-400">₹{book.price}</span>
               </div>
             </div>
+
+            {paymentConfig.isDummyKey && (
+              <div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/25 text-amber-700 dark:text-amber-300 text-xs flex items-start gap-2.5">
+                <AlertCircle className="w-4 h-4 shrink-0 text-amber-500 mt-0.5" />
+                <div className="space-y-0.5">
+                  <span className="font-bold block">Razorpay Setup Required</span>
+                  <p className="text-[11px] leading-relaxed text-slate-600 dark:text-slate-300">
+                    Render Dashboard (<strong>Environment tab</strong>) me jaakar <code>RAZORPAY_KEY_ID</code> aur <code>RAZORPAY_KEY_SECRET</code> add karein.
+                  </p>
+                </div>
+              </div>
+            )}
 
             {error && (
               <div className="p-3.5 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900 text-rose-600 dark:text-rose-300 text-xs flex items-center gap-2">

@@ -46,11 +46,13 @@ if (!targetBook) {
 }
 console.log(`📌 Target paid book for audit: "${targetBook.title}" (ID: ${targetBook.id}, Price: ₹${targetBook.price})\n`);
 
-// Clean previous test library entries if any
-const existingLib = db.data.library.filter(
+// Clean previous test library entries and orders if any
+db.data.library = db.data.library.filter(
   l => (l.userId !== studentA.id && l.userId !== studentB.id) || l.bookId !== targetBook.id
 );
-db.data.library = existingLib;
+db.data.orders = db.data.orders.filter(
+  o => (o.userId !== studentA.id && o.userId !== studentB.id) || o.bookId !== targetBook.id
+);
 db.saveData();
 
 // =========================================================================
@@ -59,7 +61,8 @@ db.saveData();
 console.log('--- TEST 1: Order Creation Security ---');
 const createReq = {
   user: studentA,
-  body: { bookId: targetBook.id }
+  body: { bookId: targetBook.id },
+  isTestSecurityAudit: true
 };
 const createRes = mockRes();
 await paymentController.createOrder(createReq, createRes);
@@ -228,7 +231,7 @@ console.log(`✅ PASS: Duplicate verification rejected with HTTP 409: "${replayO
 
 // 6b. Try to create a second order and replay the SAME payment ID
 const secondBook = db.getBooks().find(b => !b.isFree && b.id !== targetBook.id && b.id !== 'book-ai-01');
-const order2Req = { user: studentA, body: { bookId: secondBook.id } };
+const order2Req = { user: studentA, body: { bookId: secondBook.id }, isTestSecurityAudit: true };
 const order2Res = mockRes();
 await paymentController.createOrder(order2Req, order2Res);
 
@@ -258,7 +261,7 @@ console.log(`✅ PASS: Replay attack blocked (HTTP 409): "${replayPaymentIdRes.b
 // =========================================================================
 console.log('--- TEST 7: Razorpay Webhook Signature Verification & Idempotency ---');
 // Create a 3rd order for webhook fulfillment test
-const webhookOrderReq = { user: studentB, body: { bookId: targetBook.id } };
+const webhookOrderReq = { user: studentB, body: { bookId: targetBook.id }, isTestSecurityAudit: true };
 const webhookOrderRes = mockRes();
 await paymentController.createOrder(webhookOrderReq, webhookOrderRes);
 const webhookOrderId = webhookOrderRes.body.orderId;

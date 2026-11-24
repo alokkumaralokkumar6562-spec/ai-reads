@@ -102,13 +102,21 @@ export const createOrder = async (req, res) => {
         });
         razorpayOrderId = rzpOrder.id;
       } catch (rzpErr) {
-        console.warn('[Razorpay API Warning] Direct API create failed, using test order ID:', rzpErr.message);
+        console.error('[Razorpay API Error] Direct API create failed:', rzpErr);
+        const errDetail = rzpErr.error?.description || rzpErr.message || 'Authentication failed or invalid API keys';
+        return res.status(502).json({
+          error: `Razorpay Order Error: ${errDetail}. Kripya check karein ki Render Environment me RAZORPAY_KEY_ID aur RAZORPAY_KEY_SECRET sahi hain.`
+        });
       }
-    }
-
-    if (!razorpayOrderId) {
-      // Test Mode order ID format matching Razorpay standard
+    } else if (req.isTestSecurityAudit || process.env.NODE_ENV === 'test') {
+      // Allowed strictly for offline security audit test suites
       razorpayOrderId = `order_test_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+    } else {
+      // Keys are missing or placeholder in production/runtime
+      return res.status(503).json({
+        error: 'Razorpay Gateway is not configured. Render Dashboard me jaakar "RAZORPAY_KEY_ID" aur "RAZORPAY_KEY_SECRET" add karein.',
+        isConfigMissing: true
+      });
     }
 
     // PERSIST ORDER IN DATABASE WITH STATUS: 'created'
