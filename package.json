@@ -4,7 +4,8 @@
   "description": "AI Reads – Smart Notes & Books Learning Platform",
   "scripts": {
     "setup": "npm install --prefix server && npm install --prefix client",
-    "build": "npm run build --prefix client",
+    "postinstall": "npm install --prefix server && npm install --prefix client",
+    "build": "npm install --prefix client && npm run build --prefix client",
     "start": "node server/server.js",
     "server": "node server/server.js",
     "client": "npm run dev --prefix client"

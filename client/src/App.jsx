@@ -33,9 +33,9 @@ function AppContent() {
   const [paymentBook, setPaymentBook] = useState(null);
   const [searchModalOpen, setSearchModalOpen] = useState(false);
 
-  // Library cache state for fast UI sync
-  const [savedBookIds, setSavedBookIds] = useState(new Set(['book-ai-01', 'note-college-01', 'note-py-02']));
-  const [purchasedBookIds, setPurchasedBookIds] = useState(new Set(['book-ai-01', 'note-college-01']));
+  // Library cache state for fast UI sync (strictly populated from verified backend library)
+  const [savedBookIds, setSavedBookIds] = useState(new Set());
+  const [purchasedBookIds, setPurchasedBookIds] = useState(new Set());
 
   // Sync user library
   useEffect(() => {
@@ -205,6 +205,11 @@ function AppContent() {
         book={readerBook}
         isOpen={!!readerBook}
         onClose={() => setReaderBook(null)}
+        isPurchased={readerBook ? purchasedBookIds.has(readerBook.id) : false}
+        onOpenPayment={(b) => {
+          setReaderBook(null);
+          setPaymentBook(b);
+        }}
       />
 
       <PaymentModal

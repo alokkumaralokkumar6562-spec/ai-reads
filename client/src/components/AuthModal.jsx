@@ -17,7 +17,8 @@ export default function AuthModal() {
     sendOtp,
     verifyOtp,
     forgotPassword,
-    quickSwitchUser
+    quickSwitchUser,
+    sessionExpiredNotice
   } = useAuth();
 
   const [email, setEmail] = useState('');
@@ -164,6 +165,13 @@ export default function AuthModal() {
           </div>
 
           {/* Alerts */}
+          {sessionExpiredNotice && !error && (
+            <div className="mb-4 p-3 rounded-xl bg-amber-50 dark:bg-amber-950/50 border border-amber-200 dark:border-amber-900 text-amber-800 dark:text-amber-300 text-xs flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 shrink-0" />
+              <span>{sessionExpiredNotice}</span>
+            </div>
+          )}
+
           {error && (
             <div className="mb-4 p-3 rounded-xl bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-900 text-rose-600 dark:text-rose-300 text-xs flex items-center gap-2">
               <AlertCircle className="w-4 h-4 shrink-0" />

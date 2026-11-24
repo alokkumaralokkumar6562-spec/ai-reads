@@ -1,6 +1,8 @@
 import express from 'express';
 import { db } from '../data/db.js';
 import { authenticateToken } from './auth.js';
+import paymentController from '../paymentController.js';
+import { getBookPageContent } from '../data/bookContent.js';
 
 const router = express.Router();
 
@@ -83,6 +85,29 @@ router.get('/:id', (req, res) => {
     .slice(0, 4);
 
   res.json({ book, related });
+});
+
+// GET /api/books/:id/access - verify server-side if user owns this book or needs preview
+router.get('/:id/access', authenticateToken, paymentController.checkBookAccess);
+
+// GET /api/books/:id/page/:pageNumber - fetch verified subject-specific page content
+router.get('/:id/page/:pageNumber', (req, res) => {
+  const { id, pageNumber } = req.params;
+  const book = db.getBookById(id);
+  if (!book) {
+    return res.status(404).json({ error: 'Book or Note not found' });
+  }
+
+  const page = getBookPageContent(id, pageNumber);
+  if (!page) {
+    return res.status(404).json({
+      error: `Verified study material for page ${pageNumber} is currently being digitized. No placeholder content displayed.`,
+      bookId: id,
+      pageNumber: Number(pageNumber)
+    });
+  }
+
+  res.json({ page });
 });
 
 // POST /api/books - create new book (admin only)

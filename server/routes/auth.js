@@ -1,28 +1,42 @@
 import express from 'express';
 import bcrypt from 'bcryptjs';
-import jwt from 'jsonwebtoken';
 import { db } from '../data/db.js';
+import {
+  authenticateToken,
+  generateToken,
+  JWT_SECRET
+} from '../authMiddleware.js';
+
+// Re-export authenticateToken for routes importing from ./auth.js
+export { authenticateToken, generateToken, JWT_SECRET };
 
 const router = express.Router();
-const JWT_SECRET = process.env.JWT_SECRET || 'ai-reads-super-secure-jwt-secret-key-2026';
 
-// Middleware to authenticate token
-export const authenticateToken = (req, res, next) => {
-  const authHeader = req.headers['authorization'];
-  const token = authHeader && authHeader.split(' ')[1];
+/**
+ * GET /api/auth/demo-token
+ * Generates a valid signed JWT for friction-free demo switching or initialization.
+ */
+router.get('/demo-token', (req, res) => {
+  const role = req.query.role === 'admin' ? 'admin' : 'student';
+  const user = role === 'admin'
+    ? {
+        id: 'user-admin-1',
+        name: 'Alok Kumar',
+        email: 'admin@aireads.com',
+        role: 'admin'
+      }
+    : {
+        id: 'user-student-1',
+        name: 'Alex Sharma',
+        email: 'student@aireads.com',
+        role: 'student',
+        college: 'Delhi Technological University',
+        semester: '6th Semester'
+      };
 
-  if (!token) {
-    return res.status(401).json({ error: 'Access token required' });
-  }
-
-  jwt.verify(token, JWT_SECRET, (err, user) => {
-    if (err) {
-      return res.status(403).json({ error: 'Invalid or expired token' });
-    }
-    req.user = user;
-    next();
-  });
-};
+  const token = generateToken(user, '7d');
+  return res.json({ user, token });
+});
 
 // Sign Up
 router.post('/signup', async (req, res) => {
@@ -54,13 +68,9 @@ router.post('/signup', async (req, res) => {
 
     db.addUser(newUser);
 
-    const token = jwt.sign(
-      { id: newUser.id, email: newUser.email, role: newUser.role, name: newUser.name },
-      JWT_SECRET,
-      { expiresIn: '7d' }
-    );
-
+    const token = generateToken(newUser, '7d');
     const { passwordHash: _, ...safeUser } = newUser;
+
     return res.status(201).json({ user: safeUser, token, message: 'Signup successful!' });
   } catch (err) {
     console.error('Signup error:', err);
@@ -96,13 +106,9 @@ router.post('/login', async (req, res) => {
       return res.status(401).json({ error: 'Invalid email or password' });
     }
 
-    const token = jwt.sign(
-      { id: user.id, email: user.email, role: user.role, name: user.name },
-      JWT_SECRET,
-      { expiresIn: '7d' }
-    );
-
+    const token = generateToken(user, '7d');
     const { passwordHash: _, ...safeUser } = user;
+
     return res.json({ user: safeUser, token, message: 'Login successful' });
   } catch (err) {
     console.error('Login error:', err);
@@ -133,13 +139,9 @@ router.post('/google', async (req, res) => {
       db.addUser(user);
     }
 
-    const token = jwt.sign(
-      { id: user.id, email: user.email, role: user.role, name: user.name },
-      JWT_SECRET,
-      { expiresIn: '7d' }
-    );
-
+    const token = generateToken(user, '7d');
     const { passwordHash: _, ...safeUser } = user;
+
     return res.json({ user: safeUser, token, message: 'Google Sign-in successful' });
   } catch (err) {
     res.status(500).json({ error: 'Google login failed' });
@@ -159,7 +161,7 @@ router.post('/send-otp', (req, res) => {
   console.log(`[AI Reads Auth] OTP for ${email}: ${otp}`);
   return res.json({
     message: `Verification code sent to ${email}`,
-    devOtp: otp // Returned for easy instant testing in development
+    devOtp: otp
   });
 });
 
@@ -189,13 +191,9 @@ router.post('/verify-otp', (req, res) => {
     db.addUser(user);
   }
 
-  const token = jwt.sign(
-    { id: user.id, email: user.email, role: user.role, name: user.name },
-    JWT_SECRET,
-    { expiresIn: '7d' }
-  );
-
+  const token = generateToken(user, '7d');
   const { passwordHash: _, ...safeUser } = user;
+
   return res.json({ user: safeUser, token, message: 'OTP verified successfully' });
 });
 

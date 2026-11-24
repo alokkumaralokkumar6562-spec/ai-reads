@@ -1,4 +1,5 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import { onAuthExpired, clearAuthStorage, authAPI } from '../api';
 
 const AuthContext = createContext();
 
@@ -22,12 +23,18 @@ export const AuthProvider = ({ children }) => {
   });
 
   const [token, setToken] = useState(() => {
-    return localStorage.getItem('aireads-token') || 'demo-auth-token-student';
+    try {
+      return localStorage.getItem('aireads-token') || null;
+    } catch (e) {
+      return null;
+    }
   });
 
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const [authModalView, setAuthModalView] = useState('login'); // 'login' | 'signup' | 'otp' | 'forgot'
+  const [sessionExpiredNotice, setSessionExpiredNotice] = useState('');
 
+  // Persist user in localStorage
   useEffect(() => {
     if (user) {
       localStorage.setItem('aireads-user', JSON.stringify(user));
@@ -36,6 +43,7 @@ export const AuthProvider = ({ children }) => {
     }
   }, [user]);
 
+  // Persist token in localStorage
   useEffect(() => {
     if (token) {
       localStorage.setItem('aireads-token', token);
@@ -43,6 +51,44 @@ export const AuthProvider = ({ children }) => {
       localStorage.removeItem('aireads-token');
     }
   }, [token]);
+
+  // Graceful session expiry handler - intercepts 401/403 and prompts login
+  useEffect(() => {
+    const unsubscribe = onAuthExpired((details) => {
+      setUser(null);
+      setToken(null);
+      setSessionExpiredNotice(details?.error || 'Your session has expired. Please log in again to continue.');
+      setAuthModalView('login');
+      setAuthModalOpen(true);
+    });
+
+    return () => unsubscribe();
+  }, []);
+
+  // Ensure initial user has a valid signed JWT (replaces legacy raw placeholder strings)
+  useEffect(() => {
+    const ensureValidJwt = async () => {
+      const storedToken = localStorage.getItem('aireads-token');
+      // If token is missing or is legacy unsigned demo string, fetch a cryptographically signed token
+      if (!storedToken || storedToken.startsWith('demo-auth-token')) {
+        try {
+          const role = user?.role || 'student';
+          const res = await fetch(`/api/auth/demo-token?role=${role}`);
+          if (res.ok) {
+            const data = await res.json();
+            if (data.token) {
+              setToken(data.token);
+              if (data.user) setUser(data.user);
+            }
+          }
+        } catch (e) {
+          console.warn('[AuthContext] Could not fetch signed initial demo token:', e.message);
+        }
+      }
+    };
+
+    ensureValidJwt();
+  }, []);
 
   // Login
   const login = async (email, password) => {
@@ -57,6 +103,7 @@ export const AuthProvider = ({ children }) => {
 
       setUser(data.user);
       setToken(data.token);
+      setSessionExpiredNotice('');
       setAuthModalOpen(false);
       return { success: true, user: data.user };
     } catch (err) {
@@ -77,6 +124,7 @@ export const AuthProvider = ({ children }) => {
 
       setUser(data.user);
       setToken(data.token);
+      setSessionExpiredNotice('');
       setAuthModalOpen(false);
       return { success: true, user: data.user };
     } catch (err) {
@@ -97,6 +145,7 @@ export const AuthProvider = ({ children }) => {
 
       setUser(data.user);
       setToken(data.token);
+      setSessionExpiredNotice('');
       setAuthModalOpen(false);
       return { success: true, user: data.user };
     } catch (err) {
@@ -133,6 +182,7 @@ export const AuthProvider = ({ children }) => {
 
       setUser(data.user);
       setToken(data.token);
+      setSessionExpiredNotice('');
       setAuthModalOpen(false);
       return { success: true, user: data.user };
     } catch (err) {
@@ -160,12 +210,23 @@ export const AuthProvider = ({ children }) => {
   const logout = () => {
     setUser(null);
     setToken(null);
-    localStorage.removeItem('aireads-user');
-    localStorage.removeItem('aireads-token');
+    clearAuthStorage();
   };
 
-  // One-click quick demo switcher
-  const quickSwitchUser = (role) => {
+  // One-click quick demo switcher with signed JWT minting
+  const quickSwitchUser = async (role) => {
+    try {
+      const res = await fetch(`/api/auth/demo-token?role=${role}`);
+      if (res.ok) {
+        const data = await res.json();
+        setUser(data.user);
+        setToken(data.token);
+        return;
+      }
+    } catch (e) {
+      console.warn('Fallback local demo switch:', e);
+    }
+
     if (role === 'admin') {
       setUser({
         id: 'user-admin-1',
@@ -173,7 +234,6 @@ export const AuthProvider = ({ children }) => {
         email: 'admin@aireads.com',
         role: 'admin'
       });
-      setToken('demo-auth-token-admin');
     } else {
       setUser({
         id: 'user-student-1',
@@ -183,7 +243,6 @@ export const AuthProvider = ({ children }) => {
         college: 'Delhi Technological University',
         semester: '6th Semester'
       });
-      setToken('demo-auth-token-student');
     }
   };
 
@@ -194,6 +253,7 @@ export const AuthProvider = ({ children }) => {
 
   const closeAuthModal = () => {
     setAuthModalOpen(false);
+    setSessionExpiredNotice('');
   };
 
   return (
@@ -213,6 +273,7 @@ export const AuthProvider = ({ children }) => {
         quickSwitchUser,
         authModalOpen,
         authModalView,
+        sessionExpiredNotice,
         openAuthModal,
         closeAuthModal,
         setAuthModalView

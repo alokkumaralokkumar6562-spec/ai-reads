@@ -2,11 +2,12 @@ import React, { useState, useEffect } from 'react';
 import {
   X, ChevronLeft, ChevronRight, ZoomIn, ZoomOut,
   Maximize2, Minimize2, Sparkles, Volume2, VolumeX,
-  Bookmark, Download, CheckCircle, HelpCircle, Loader2, BookOpen
+  Bookmark, Download, CheckCircle, HelpCircle, Loader2, BookOpen, Lock,
+  Copy, Check, Code, Lightbulb, FileCheck
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
-export default function PdfReaderModal({ book, isOpen, onClose }) {
+export default function PdfReaderModal({ book, isOpen, onClose, isPurchased = false, onOpenPayment }) {
   const { user, token } = useAuth();
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(100);
@@ -18,6 +19,12 @@ export default function PdfReaderModal({ book, isOpen, onClose }) {
   const [aiResponse, setAiResponse] = useState('');
   const [activeAiTab, setActiveAiTab] = useState('summary'); // 'summary' | 'explain' | 'quiz'
   const [isSpeaking, setIsSpeaking] = useState(false);
+  const [pageData, setPageData] = useState(null);
+  const [pageLoading, setPageLoading] = useState(true);
+  const [copiedCode, setCopiedCode] = useState(false);
+
+  const isPreviewOnly = Boolean(book && !book.isFree && !isPurchased);
+  const maxAllowedPages = isPreviewOnly ? Math.min(3, book?.pages || 80) : (book?.pages || 80);
 
   useEffect(() => {
     if (book) {
@@ -26,6 +33,27 @@ export default function PdfReaderModal({ book, isOpen, onClose }) {
       setAiResponse('');
     }
   }, [book]);
+
+  // Fetch verified subject-specific page content
+  useEffect(() => {
+    let isMounted = true;
+    if (book && isOpen) {
+      setPageLoading(true);
+      fetch(`/api/books/${book.id}/page/${currentPage}`)
+        .then(res => res.json())
+        .then(data => {
+          if (isMounted) {
+            setPageData(data.page || null);
+            setPageLoading(false);
+          }
+        })
+        .catch(err => {
+          console.warn('Error fetching book page:', err);
+          if (isMounted) setPageLoading(false);
+        });
+    }
+    return () => { isMounted = false; };
+  }, [book, currentPage, isOpen]);
 
   // Sync progress to backend when reading
   useEffect(() => {
@@ -60,7 +88,19 @@ export default function PdfReaderModal({ book, isOpen, onClose }) {
   };
 
   const handleNextPage = () => {
+    if (isPreviewOnly && currentPage >= maxAllowedPages) {
+      if (onOpenPayment) onOpenPayment(book);
+      return;
+    }
     if (currentPage < totalPages) setCurrentPage(p => p + 1);
+  };
+
+  const copyCodeToClipboard = (code) => {
+    if (navigator.clipboard && code) {
+      navigator.clipboard.writeText(code);
+      setCopiedCode(true);
+      setTimeout(() => setCopiedCode(false), 2000);
+    }
   };
 
   // Text to speech
@@ -74,7 +114,11 @@ export default function PdfReaderModal({ book, isOpen, onClose }) {
       window.speechSynthesis.cancel();
       setIsSpeaking(false);
     } else {
-      const textToRead = `${book.title}. Chapter ${Math.ceil(currentPage / 10)}. In this section, we examine core computational foundations, theoretical invariants, and algorithm efficiency.`;
+      const textToRead = isPreviewOnly
+        ? `You are previewing sample page ${currentPage} of ${book.title}. Unlock the full book for rupees ${book.price} to listen to the complete audiobook and access all chapters.`
+        : pageData
+        ? `${pageData.heading}. ${pageData.body.slice(0, 350)}`
+        : `${book.title}. Page ${currentPage}.`;
       const utterance = new SpeechSynthesisUtterance(textToRead);
       utterance.rate = 0.95;
       utterance.onend = () => setIsSpeaking(false);
@@ -91,14 +135,18 @@ export default function PdfReaderModal({ book, isOpen, onClose }) {
     setAiLoading(true);
     setAiResponse('');
 
+    const pageContext = pageData
+      ? `[Source: ${book.title} | ${pageData.chapter} | ${pageData.heading}]\n\n${pageData.body}`
+      : `Core concepts for ${book.title} (${book.category})`;
+
     try {
       if (type === 'summary') {
         const res = await fetch('/api/ai/summarize', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            title: `${book.title} (Page ${currentPage})`,
-            text: `Core concepts on page ${currentPage} of ${book.title}. Discussing standard algorithms, memory usage, and practical formulas.`,
+            title: `${book.title} - ${pageData?.heading || `Page ${currentPage}`}`,
+            text: pageContext,
             chapterWise: false
           })
         });
@@ -108,7 +156,10 @@ export default function PdfReaderModal({ book, isOpen, onClose }) {
         const res = await fetch('/api/ai/explain-bilingual', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ topic: `${book.category}: Key concepts in ${book.title}` })
+          body: JSON.stringify({
+            topic: pageData?.heading || `${book.category}: Key concepts in ${book.title}`,
+            contextText: pageContext
+          })
         });
         const data = await res.json();
         setAiResponse(`${data.english}\n\n---\n\n${data.hindi}`);
@@ -116,7 +167,11 @@ export default function PdfReaderModal({ book, isOpen, onClose }) {
         const res = await fetch('/api/ai/generate-mcqs', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ topic: book.category, count: 3 })
+          body: JSON.stringify({
+            topic: pageData?.heading || book.category,
+            contextText: pageContext,
+            count: 3
+          })
         });
         const data = await res.json();
         const quizText = data.questions.map((q, idx) => `**Q${idx + 1}: ${q.question}**\n${q.options.map((opt, i) => `• ${opt} ${i === q.correctAnswer ? '✅ *(Correct)*' : ''}`).join('\n')}\n*Explanation: ${q.explanation}*\n`).join('\n---\n\n');
@@ -142,9 +197,16 @@ export default function PdfReaderModal({ book, isOpen, onClose }) {
               <BookOpen className="w-4 h-4" />
             </span>
             <div className="min-w-0">
-              <h3 className="text-xs sm:text-sm font-bold truncate max-w-[200px] sm:max-w-md">
-                {book.title}
-              </h3>
+              <div className="flex items-center gap-2">
+                <h3 className="text-xs sm:text-sm font-bold truncate max-w-[200px] sm:max-w-md">
+                  {book.title}
+                </h3>
+                {isPreviewOnly && (
+                  <span className="hidden sm:inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/10 text-amber-700 dark:text-amber-300 border border-amber-500/20">
+                    <Lock className="w-2.5 h-2.5" /> Sample Preview (Pages 1-{maxAllowedPages})
+                  </span>
+                )}
+              </div>
               <p className="text-[10px] opacity-70 truncate">
                 {book.author} • {book.category}
               </p>
@@ -245,40 +307,114 @@ export default function PdfReaderModal({ book, isOpen, onClose }) {
             >
               <div>
                 <div className="flex justify-between items-center text-[11px] uppercase tracking-widest opacity-60 pb-4 border-b border-inherit mb-6">
-                  <span>{book.category}</span>
-                  <span>Chapter {Math.ceil(currentPage / 10)}: Foundations</span>
+                  <span>{pageData?.category || book.category}</span>
+                  <span className="font-mono">{pageData?.chapter || `Page ${currentPage} of ${totalPages}`}</span>
                 </div>
 
-                <h1 className="text-2xl font-black mb-4">
-                  {book.title}
-                </h1>
-                <p className="text-xs font-semibold opacity-70 mb-6">
-                  By {book.author} • Academic Digital Edition
-                </p>
+                {isPreviewOnly && currentPage > maxAllowedPages ? (
+                  <div className="py-12 px-4 text-center space-y-4 animate-in fade-in">
+                    <div className="w-16 h-16 rounded-2xl bg-indigo-100 dark:bg-indigo-950/70 text-indigo-600 dark:text-indigo-400 mx-auto flex items-center justify-center shadow-lg shadow-indigo-600/10">
+                      <Lock className="w-8 h-8" />
+                    </div>
+                    <div>
+                      <h2 className="text-xl font-black">Full Study Material Locked</h2>
+                      <p className="text-xs text-slate-500 dark:text-slate-400 mt-2 max-w-md mx-auto leading-relaxed">
+                        You have reached the end of the free {maxAllowedPages}-page preview for <strong>"{book.title}"</strong>.
+                        To read all {totalPages} pages, listen to continuous audio, and download the full PDF notes, complete the payment.
+                      </p>
+                    </div>
 
-                <div className="space-y-4 text-xs sm:text-sm leading-relaxed">
-                  <p>
-                    <strong>Section {currentPage}.1: Fundamental Theorems & Structural Invariants</strong>
-                  </p>
-                  <p>
-                    In modern computational science and software engineering, mastering asymptotic bounds requires verifying state preconditions prior to executing non-linear state transitions. Whether optimizing relational indices or deploying deep neural pipelines, efficiency bounds remain bounded by deterministic principles.
-                  </p>
-
-                  <div className="p-4 rounded-xl bg-inherit border border-inherit my-4 font-mono text-xs shadow-inner">
-                    <p className="text-indigo-600 dark:text-indigo-400 font-bold mb-1">// Algorithm Invariant Definition</p>
-                    <p>Invariant(State S): for each node v in Graph G: d[v] &le; d[u] + w(u, v)</p>
-                    <p>Complexity: O(|V| log |V| + |E|)</p>
+                    <div className="pt-4 max-w-xs mx-auto">
+                      <button
+                        onClick={() => onOpenPayment && onOpenPayment(book)}
+                        className="w-full py-3.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shadow-lg shadow-indigo-600/30 flex items-center justify-center gap-2 transition-all hover:scale-[1.02]"
+                      >
+                        <Lock className="w-4 h-4" />
+                        Unlock Full Access for ₹{book.price}
+                      </button>
+                    </div>
                   </div>
-
-                  <p>
-                    During university examinations and competitive interviews, students frequently fail to declare loop termination criteria. Always prove that with each recursive reduction step, the problem strictly monotonically decreases towards the known base case.
-                  </p>
-
-                  <div className="p-3 rounded-lg border-l-4 border-indigo-500 bg-indigo-50/20 my-4 text-xs">
-                    <p className="font-bold">Key Exam Takeaway:</p>
-                    <p>Maintain consistent notation and explicitly state assumptions when formulating mathematical proofs or code walkthroughs.</p>
+                ) : pageLoading ? (
+                  <div className="py-24 flex flex-col items-center justify-center gap-3 opacity-60">
+                    <Loader2 className="w-8 h-8 animate-spin text-indigo-600" />
+                    <span className="text-xs font-semibold">Loading verified syllabus content (Page {currentPage})...</span>
                   </div>
-                </div>
+                ) : pageData ? (
+                  <div className="space-y-4 text-xs sm:text-sm leading-relaxed animate-in fade-in duration-150">
+                    <div>
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400">
+                        {pageData.chapter}
+                      </span>
+                      <h2 className="text-lg sm:text-xl font-black mt-1 text-slate-900 dark:text-white">
+                        {pageData.heading}
+                      </h2>
+                      <p className="text-[11px] font-semibold opacity-70 mt-0.5">
+                        Source: {book.title} • By {book.author}
+                      </p>
+                    </div>
+
+                    {/* Subject Content Paragraphs */}
+                    <div className="whitespace-pre-line text-slate-800 dark:text-slate-200 leading-relaxed font-normal">
+                      {pageData.body}
+                    </div>
+
+                    {/* Authentic Code Snippet with Copy Button */}
+                    {pageData.codeSnippet && (
+                      <div className="my-4 rounded-xl overflow-hidden border border-slate-700/60 bg-slate-950 text-slate-100 shadow-lg">
+                        <div className="flex items-center justify-between px-3.5 py-1.5 bg-slate-900/90 border-b border-slate-800 text-[11px]">
+                          <div className="flex items-center gap-1.5 text-indigo-400 font-mono font-bold">
+                            <Code className="w-3.5 h-3.5" />
+                            <span>{pageData.codeSnippet.language.toUpperCase()} IMPLEMENTATION</span>
+                          </div>
+                          <button
+                            onClick={() => copyCodeToClipboard(pageData.codeSnippet.code)}
+                            className="flex items-center gap-1 px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-[10px] transition-colors"
+                          >
+                            {copiedCode ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
+                            <span>{copiedCode ? 'Copied!' : 'Copy Code'}</span>
+                          </button>
+                        </div>
+                        <pre className="p-4 text-xs font-mono overflow-x-auto leading-relaxed text-emerald-400">
+                          <code>{pageData.codeSnippet.code}</code>
+                        </pre>
+                      </div>
+                    )}
+
+                    {/* Key Subject Takeaways */}
+                    {pageData.keyTakeaways && pageData.keyTakeaways.length > 0 && (
+                      <div className="p-3.5 rounded-xl border border-indigo-200 dark:border-indigo-900/60 bg-indigo-50/40 dark:bg-indigo-950/20 my-4 space-y-2 text-xs">
+                        <div className="flex items-center gap-1.5 font-bold text-indigo-700 dark:text-indigo-300">
+                          <FileCheck className="w-4 h-4" />
+                          <span>Core Syllabus Takeaways:</span>
+                        </div>
+                        <ul className="list-disc list-inside space-y-1 text-slate-700 dark:text-slate-300 pl-1">
+                          {pageData.keyTakeaways.map((item, idx) => (
+                            <li key={idx}>{item}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+
+                    {/* High-Yield Exam Tip */}
+                    {pageData.examTip && (
+                      <div className="p-3 rounded-lg border-l-4 border-amber-500 bg-amber-50/40 dark:bg-amber-950/20 my-4 text-xs space-y-1">
+                        <p className="font-bold text-amber-800 dark:text-amber-300 flex items-center gap-1">
+                          <Lightbulb className="w-3.5 h-3.5" />
+                          <span>University Exam & Viva Tip:</span>
+                        </p>
+                        <p className="text-slate-700 dark:text-slate-300">{pageData.examTip}</p>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="py-20 text-center space-y-3">
+                    <FileCheck className="w-10 h-10 mx-auto text-slate-400" />
+                    <h3 className="font-bold text-sm">Verified Source Material in Digitization</h3>
+                    <p className="text-xs text-slate-500 max-w-sm mx-auto">
+                      Page {currentPage} of "{book.title}" is currently being indexed from the publisher source. No placeholder text is displayed.
+                    </p>
+                  </div>
+                )}
               </div>
 
               <div className="pt-8 border-t border-inherit flex items-center justify-between text-xs opacity-60">
@@ -393,11 +529,23 @@ export default function PdfReaderModal({ book, isOpen, onClose }) {
 
           <div className="flex items-center gap-2">
             <button
-              onClick={() => alert(`Starting download for ${book.title}.pdf (Verified)`)}
-              className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-indigo-600 hover:bg-indigo-700 text-white flex items-center gap-1.5 shadow-sm transition-all"
+              onClick={() => {
+                if (isPreviewOnly) {
+                  if (onOpenPayment) onOpenPayment(book);
+                } else {
+                  alert(`Starting download for ${book.title}.pdf (Verified Lifetime Access)`);
+                }
+              }}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 shadow-sm transition-all ${
+                isPreviewOnly
+                  ? 'bg-amber-600 hover:bg-amber-700 text-white'
+                  : 'bg-indigo-600 hover:bg-indigo-700 text-white'
+              }`}
             >
-              <Download className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Download PDF</span>
+              {isPreviewOnly ? <Lock className="w-3.5 h-3.5" /> : <Download className="w-3.5 h-3.5" />}
+              <span className="hidden sm:inline">
+                {isPreviewOnly ? `Unlock to Download (₹${book.price})` : 'Download PDF'}
+              </span>
             </button>
           </div>
         </div>

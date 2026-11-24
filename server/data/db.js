@@ -907,15 +907,45 @@ class Database {
   getUserOrders(userId) {
     return this.data.orders.filter(o => o.userId === userId);
   }
+  findOrderById(id) {
+    return this.data.orders.find(o => o.id === id);
+  }
+  findOrderByRazorpayOrderId(orderId) {
+    return this.data.orders.find(o => o.razorpayOrderId === orderId || o.orderId === orderId);
+  }
+  findOrderByPaymentId(paymentId) {
+    if (!paymentId) return null;
+    return this.data.orders.find(o => o.razorpayPaymentId === paymentId && o.status === 'paid');
+  }
   addOrder(order) {
     this.data.orders.unshift(order);
     this.saveData();
     return order;
   }
+  createOrder(order) {
+    return this.addOrder(order);
+  }
+  updateOrder(orderId, updates) {
+    const idx = this.data.orders.findIndex(o => o.id === orderId || o.razorpayOrderId === orderId || o.orderId === orderId);
+    if (idx !== -1) {
+      this.data.orders[idx] = { ...this.data.orders[idx], ...updates };
+      this.saveData();
+      return this.data.orders[idx];
+    }
+    return null;
+  }
 
   // User Library
   getUserLibrary(userId) {
     return this.data.library.filter(l => l.userId === userId);
+  }
+  isBookPurchased(userId, bookId) {
+    if (!userId || !bookId) return false;
+    const entry = this.data.library.find(l => l.userId === userId && l.bookId === bookId && l.isPurchased === true);
+    if (entry) return true;
+    // Also cross-verify with paid orders
+    const paidOrder = this.data.orders.find(o => o.userId === userId && o.bookId === bookId && o.status === 'paid');
+    return Boolean(paidOrder);
   }
   addToLibrary(record) {
     const existing = this.data.library.find(l => l.userId === record.userId && l.bookId === record.bookId);
